@@ -1,6 +1,6 @@
-// QR Quick Menu v2
-// CSS 파일에 의존하지 않고 JS가 인라인 스타일을 직접 박아넣는 버전.
-// 빠답(QR) 버튼 하나로 열고, /dom으로 만든 가짜 클릭에도 절대 자동으로 닫히지 않음.
+// QR Quick Menu v3
+// 변경점: 패널을 #form_sheld(입력창 영역) 안에 붙이고 position:absolute 사용.
+//         ST에서는 body에 transform이 걸려 position:fixed가 깨지기 때문.
 
 (function () {
     const TRIGGER_ID = 'qr-quickmenu-trigger';
@@ -14,12 +14,13 @@
         ['📂 채팅 파일 관리', 'option_select_chat'],
     ];
 
-    // 패널 위치/모양 — 여기 숫자만 바꾸면 위치 조정됨
+    // 패널 위치/모양 — bottom 숫자만 바꾸면 위아래 조정됨
     const PANEL_STYLE = {
         display: 'none',
-        position: 'fixed',
+        position: 'absolute',
         left: '50%',
-        bottom: '70px',
+        bottom: '100%',
+        marginBottom: '8px',
         transform: 'translateX(-50%)',
         zIndex: '99999',
         flexDirection: 'column',
@@ -29,6 +30,8 @@
         borderRadius: '10px',
         padding: '8px',
         minWidth: '200px',
+        maxHeight: '50vh',
+        overflowY: 'auto',
         boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
         boxSizing: 'border-box',
     };
@@ -53,6 +56,13 @@
         });
     }
 
+    // 패널을 붙일 부모: 입력창 영역 우선, 없으면 body
+    function getHost() {
+        return document.getElementById('form_sheld')
+            || document.getElementById('send_form')
+            || document.body;
+    }
+
     function buildPanel() {
         panelEl = document.createElement('div');
         panelEl.id = PANEL_ID;
@@ -63,6 +73,13 @@
             btn.className = 'qr-quickmenu-item';
             btn.textContent = label;
             applyStyle(btn, ITEM_STYLE);
+
+            btn.addEventListener('mouseenter', () => {
+                btn.style.background = 'rgba(127,127,127,0.15)';
+            });
+            btn.addEventListener('mouseleave', () => {
+                btn.style.background = 'transparent';
+            });
 
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -78,15 +95,20 @@
             panelEl.appendChild(btn);
         });
 
-        document.body.appendChild(panelEl);
+        const host = getHost();
+        // 부모가 static이면 absolute 기준이 안 되므로 relative 보장
+        if (host !== document.body && getComputedStyle(host).position === 'static') {
+            host.style.position = 'relative';
+        }
+        host.appendChild(panelEl);
+        console.log('[QR Quick Menu v3] 패널 부모:', host.id || host.tagName);
     }
 
     function buildTrigger() {
-        // 화면 밖으로 치워둠 (display:none이면 일부 클릭 핸들러가 씹힐 수 있어서)
         triggerEl = document.createElement('div');
         triggerEl.id = TRIGGER_ID;
         applyStyle(triggerEl, {
-            position: 'fixed',
+            position: 'absolute',
             left: '-9999px',
             top: '0',
             width: '1px',
@@ -96,7 +118,7 @@
             e.stopPropagation();
             togglePanel();
         });
-        document.body.appendChild(triggerEl);
+        getHost().appendChild(triggerEl);
     }
 
     function openPanel() {
@@ -125,12 +147,21 @@
     function init() {
         buildPanel();
         buildTrigger();
-        console.log('[QR Quick Menu v2] 준비 완료 — 트리거: #' + TRIGGER_ID);
+        console.log('[QR Quick Menu v3] 준비 완료 — 트리거: #' + TRIGGER_ID);
+    }
+
+    // ST는 입력창을 늦게 그리므로 약간 지연 후 초기화
+    function boot() {
+        if (document.getElementById('form_sheld')) {
+            init();
+        } else {
+            setTimeout(boot, 300);
+        }
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
+        document.addEventListener('DOMContentLoaded', boot);
     } else {
-        init();
+        boot();
     }
 })();
